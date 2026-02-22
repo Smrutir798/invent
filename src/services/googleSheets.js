@@ -1,6 +1,8 @@
-// Google Sheets API Integration Service via Vercel Serverless Functions
+// Google Sheets API Integration Service
 
-const API_BASE_URL = '/api/sheets';
+// Use local server in development, Vercel serverless in production
+const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+const API_BASE_URL = isLocal ? 'http://localhost:3001' : '/api/sheets';
 
 class GoogleSheetsService {
   constructor() {

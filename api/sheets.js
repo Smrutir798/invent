@@ -9,8 +9,7 @@ function getCredentials() {
   if (process.env.GOOGLE_CREDENTIALS) {
     return JSON.parse(process.env.GOOGLE_CREDENTIALS);
   }
-  // Fallback for local development
-  return require('../credentials.json');
+  throw new Error('GOOGLE_CREDENTIALS environment variable is not set');
 }
 
 // Get Google Sheets instance
@@ -72,12 +71,27 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type',
 };
 
+// Parse body if it's a string
+function parseBody(body) {
+  if (typeof body === 'string') {
+    try {
+      return JSON.parse(body);
+    } catch {
+      return body;
+    }
+  }
+  return body || {};
+}
+
 module.exports = async (req, res) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     res.status(200).set(corsHeaders).end();
     return;
   }
+  
+  // Parse body
+  const body = parseBody(req.body);
 
   // Set CORS headers
   Object.entries(corsHeaders).forEach(([key, value]) => {
@@ -95,19 +109,19 @@ module.exports = async (req, res) => {
       case 'getInventory':
         return await getInventory(sheets, res);
       case 'addItem':
-        return await addItem(sheets, req.body, res);
+        return await addItem(sheets, body, res);
       case 'updateItem':
-        return await updateItem(sheets, req.query.rowIndex, req.body, res);
+        return await updateItem(sheets, req.query.rowIndex, body, res);
       case 'deleteItem':
         return await deleteItem(sheets, req.query.rowIndex, res);
       case 'getUsers':
         return await getUsers(sheets, res);
       case 'login':
-        return await login(sheets, req.body, res);
+        return await login(sheets, body, res);
       case 'getInvoices':
         return await getInvoices(sheets, res);
       case 'addInvoice':
-        return await addInvoice(sheets, req.body, res);
+        return await addInvoice(sheets, body, res);
       case 'deleteInvoice':
         return await deleteInvoice(sheets, req.query.rowIndex, res);
       case 'health':
@@ -153,15 +167,31 @@ async function getInventory(sheets, res) {
 }
 
 async function addItem(sheets, item, res) {
+  if (!item || !item.itemName) {
+    return res.status(400).json({ error: 'Item data is required', received: item });
+  }
+  
   await sheets.spreadsheets.values.append({
     spreadsheetId: SPREADSHEET_ID,
     range: 'Inventory!A:O',
     valueInputOption: 'USER_ENTERED',
     requestBody: {
       values: [[
-        item.itemName, item.totalQty, item.balance, item.rate, item.gst,
-        item.gstRate, item.pRate, item.s1, item.gstAmount, item.salesRate,
-        item.round, item.total, item.date, item.time, item.enteredBy,
+        item.itemName || '', 
+        item.totalQty || 0, 
+        item.balance || 0, 
+        item.rate || 0, 
+        item.gst || 0,
+        item.gstRate || 0, 
+        item.pRate || 0, 
+        item.s1 || '', 
+        item.gstAmount || 0, 
+        item.salesRate || 0,
+        item.round || 0, 
+        item.total || 0, 
+        item.date || '', 
+        item.time || '', 
+        item.enteredBy || '',
       ]],
     },
   });
@@ -170,15 +200,31 @@ async function addItem(sheets, item, res) {
 }
 
 async function updateItem(sheets, rowIndex, item, res) {
+  if (!item || !rowIndex) {
+    return res.status(400).json({ error: 'Item data and row index are required' });
+  }
+  
   await sheets.spreadsheets.values.update({
     spreadsheetId: SPREADSHEET_ID,
     range: `Inventory!A${rowIndex}:O${rowIndex}`,
     valueInputOption: 'USER_ENTERED',
     requestBody: {
       values: [[
-        item.itemName, item.totalQty, item.balance, item.rate, item.gst,
-        item.gstRate, item.pRate, item.s1, item.gstAmount, item.salesRate,
-        item.round, item.total, item.date, item.time, item.enteredBy,
+        item.itemName || '', 
+        item.totalQty || 0, 
+        item.balance || 0, 
+        item.rate || 0, 
+        item.gst || 0,
+        item.gstRate || 0, 
+        item.pRate || 0, 
+        item.s1 || '', 
+        item.gstAmount || 0, 
+        item.salesRate || 0,
+        item.round || 0, 
+        item.total || 0, 
+        item.date || '', 
+        item.time || '', 
+        item.enteredBy || '',
       ]],
     },
   });
@@ -232,7 +278,14 @@ async function getUsers(sheets, res) {
   return res.json(users);
 }
 
-async function login(sheets, { username, password }, res) {
+async function login(sheets, body, res) {
+  const username = body?.username;
+  const password = body?.password;
+  
+  if (!username || !password) {
+    return res.status(400).json({ success: false, error: 'Username and password are required' });
+  }
+  
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
     range: 'Users!A2:D',
@@ -288,6 +341,10 @@ async function getInvoices(sheets, res) {
 }
 
 async function addInvoice(sheets, invoice, res) {
+  if (!invoice || !invoice.invoiceNo) {
+    return res.status(400).json({ error: 'Invoice data is required', received: invoice });
+  }
+  
   let itemsArray = invoice.items;
   if (typeof invoice.items === 'string') {
     try { itemsArray = JSON.parse(invoice.items); } catch (e) { itemsArray = []; }

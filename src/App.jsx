@@ -11,6 +11,14 @@ import Reports from './components/Reports';
 import Billing from './components/Billing';
 import CreateInvoice from './components/CreateInvoice';
 import InvoiceView from './components/InvoiceView';
+import SalesLedger from './components/SalesLedger';
+import Customers from './components/Customers';
+import Suppliers from './components/Suppliers';
+import Purchases from './components/Purchases';
+import Quotations from './components/Quotations';
+import Returns from './components/Returns';
+import Expenses from './components/Expenses';
+import ProfitReport from './components/ProfitReport';
 import './App.css';
 
 function App() {
@@ -82,6 +90,78 @@ function App() {
             element={
               <ProtectedRoute>
                 <InvoiceView />
+              </ProtectedRoute>
+            }
+          />
+          
+          <Route
+            path="/ledger"
+            element={
+              <ProtectedRoute>
+                <SalesLedger />
+              </ProtectedRoute>
+            }
+          />
+          
+          <Route
+            path="/customers"
+            element={
+              <ProtectedRoute>
+                <Customers />
+              </ProtectedRoute>
+            }
+          />
+          
+          <Route
+            path="/suppliers"
+            element={
+              <ProtectedRoute>
+                <Suppliers />
+              </ProtectedRoute>
+            }
+          />
+          
+          <Route
+            path="/purchases"
+            element={
+              <ProtectedRoute>
+                <Purchases />
+              </ProtectedRoute>
+            }
+          />
+          
+          <Route
+            path="/quotations"
+            element={
+              <ProtectedRoute>
+                <Quotations />
+              </ProtectedRoute>
+            }
+          />
+          
+          <Route
+            path="/returns"
+            element={
+              <ProtectedRoute>
+                <Returns />
+              </ProtectedRoute>
+            }
+          />
+          
+          <Route
+            path="/expenses"
+            element={
+              <ProtectedRoute adminOnly>
+                <Expenses />
+              </ProtectedRoute>
+            }
+          />
+          
+          <Route
+            path="/profit-report"
+            element={
+              <ProtectedRoute adminOnly>
+                <ProfitReport />
               </ProtectedRoute>
             }
           />

@@ -96,6 +96,21 @@ const Billing = () => {
     setSelectedInvoice(invoice);
   };
 
+  const handleDeleteInvoice = async (invoice) => {
+    if (!window.confirm(`Are you sure you want to delete invoice ${invoice.invoiceNo}?`)) {
+      return;
+    }
+    
+    try {
+      await googleSheetsService.deleteInvoice(invoice.id);
+      alert('Invoice deleted successfully!');
+      loadData(); // Refresh the list
+    } catch (error) {
+      console.error('Error deleting invoice:', error);
+      alert('Failed to delete invoice');
+    }
+  };
+
   const handlePrint = () => {
     window.print();
   };
@@ -215,7 +230,7 @@ const Billing = () => {
                           </button>
                           {isAdmin() && (
                             <button
-                              onClick={() => {/* Delete logic */}}
+                              onClick={() => handleDeleteInvoice(invoice)}
                               className="delete-btn"
                             >
                               🗑️

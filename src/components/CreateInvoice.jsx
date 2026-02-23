@@ -85,9 +85,27 @@ const CreateInvoice = () => {
     const inventoryItem = inventory.find(item => item.id.toString() === selectedItem);
     if (!inventoryItem) return;
 
+    const qty = parseInt(quantity) || 1;
+    const availableStock = Number(inventoryItem.balance) || 0;
+
+    // Check already added quantity for this item in current invoice
+    const alreadyAddedQty = items
+      .filter(item => item.inventoryId === inventoryItem.id)
+      .reduce((sum, item) => sum + item.quantity, 0);
+
+    // Check if total quantity exceeds available stock
+    if (qty + alreadyAddedQty > availableStock) {
+      const remaining = availableStock - alreadyAddedQty;
+      if (remaining <= 0) {
+        alert(`No more stock available for "${inventoryItem.itemName}". Already added ${alreadyAddedQty} units.`);
+      } else {
+        alert(`Insufficient stock! Only ${remaining} more units available for "${inventoryItem.itemName}" (${alreadyAddedQty} already in invoice).`);
+      }
+      return;
+    }
+
     const rate = Number(inventoryItem.rate) || 0;
     const gstPercent = Number(inventoryItem.gst) || 18;
-    const qty = parseInt(quantity) || 1;
     const disc = parseFloat(discount) || 0;
 
     const baseAmount = rate * qty;
@@ -98,6 +116,7 @@ const CreateInvoice = () => {
 
     const newItem = {
       id: Date.now(),
+      inventoryId: inventoryItem.id, // Store inventory row index for quantity reduction
       itemName: inventoryItem.itemName,
       hsn: '87120010', // Default HSN for cycles
       gstPercent,
@@ -194,10 +213,30 @@ const CreateInvoice = () => {
 
     try {
       await googleSheetsService.addInvoice(invoiceData);
-      alert('Invoice saved successfully!');
+      
+      // Reduce inventory balance for each item
+      const inventoryUpdates = items.map(item => ({
+        rowIndex: item.inventoryId,
+        quantity: item.quantity
+      }));
+      await googleSheetsService.reduceInventoryBalance(inventoryUpdates);
+      
+      alert('Invoice saved successfully! Inventory updated.');
       navigate('/billing');
     } catch (error) {
       console.error('Error saving invoice:', error);
+      
+      // Still try to reduce inventory in demo mode
+      try {
+        const inventoryUpdates = items.map(item => ({
+          rowIndex: item.inventoryId,
+          quantity: item.quantity
+        }));
+        await googleSheetsService.reduceInventoryBalance(inventoryUpdates);
+      } catch (e) {
+        console.error('Error reducing inventory:', e);
+      }
+      
       alert('Invoice saved (demo mode)');
       navigate('/billing');
     } finally {

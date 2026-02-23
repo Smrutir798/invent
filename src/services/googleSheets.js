@@ -233,6 +233,259 @@ class GoogleSheetsService {
     }
   }
 
+  async reduceInventoryBalance(items) {
+    // items is an array of { rowIndex, quantity }
+    try {
+      const response = await fetch(`${this.apiUrl}?action=reduceInventoryBalance`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items }),
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('Error reducing inventory balance:', error);
+      // In demo mode, just return success
+      return { success: true, message: 'Demo mode - inventory not updated' };
+    }
+  }
+
+  async increaseInventoryBalance(items) {
+    try {
+      const response = await fetch(`${this.apiUrl}?action=increaseInventoryBalance`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items }),
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('Error increasing inventory balance:', error);
+      return { success: true, message: 'Demo mode - inventory not updated' };
+    }
+  }
+
+  // Customer Functions
+  async fetchCustomers() {
+    try {
+      const response = await fetch(`${this.apiUrl}?action=getCustomers`);
+      if (!response.ok) throw new Error('Failed to fetch');
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching customers:', error);
+      return [];
+    }
+  }
+
+  async addCustomer(customerData) {
+    try {
+      const response = await fetch(`${this.apiUrl}?action=addCustomer`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(customerData),
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('Error adding customer:', error);
+      throw error;
+    }
+  }
+
+  async updateCustomer(rowIndex, customerData) {
+    try {
+      const response = await fetch(`${this.apiUrl}?action=updateCustomer&rowIndex=${rowIndex}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(customerData),
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('Error updating customer:', error);
+      throw error;
+    }
+  }
+
+  async deleteCustomer(rowIndex) {
+    try {
+      const response = await fetch(`${this.apiUrl}?action=deleteCustomer&rowIndex=${rowIndex}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('Error deleting customer:', error);
+      throw error;
+    }
+  }
+
+  // Supplier Functions
+  async fetchSuppliers() {
+    try {
+      const response = await fetch(`${this.apiUrl}?action=getSuppliers`);
+      if (!response.ok) throw new Error('Failed to fetch');
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching suppliers:', error);
+      return [];
+    }
+  }
+
+  async addSupplier(supplierData) {
+    try {
+      const response = await fetch(`${this.apiUrl}?action=addSupplier`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(supplierData),
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('Error adding supplier:', error);
+      throw error;
+    }
+  }
+
+  async deleteSupplier(rowIndex) {
+    try {
+      const response = await fetch(`${this.apiUrl}?action=deleteSupplier&rowIndex=${rowIndex}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('Error deleting supplier:', error);
+      throw error;
+    }
+  }
+
+  // Purchase Functions
+  async fetchPurchases() {
+    try {
+      const response = await fetch(`${this.apiUrl}?action=getPurchases`);
+      if (!response.ok) throw new Error('Failed to fetch');
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching purchases:', error);
+      return [];
+    }
+  }
+
+  async addPurchase(purchaseData) {
+    try {
+      const response = await fetch(`${this.apiUrl}?action=addPurchase`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(purchaseData),
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('Error adding purchase:', error);
+      throw error;
+    }
+  }
+
+  // Quotation Functions
+  async fetchQuotations() {
+    try {
+      const response = await fetch(`${this.apiUrl}?action=getQuotations`);
+      if (!response.ok) throw new Error('Failed to fetch');
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching quotations:', error);
+      return [];
+    }
+  }
+
+  async addQuotation(quotationData) {
+    try {
+      const response = await fetch(`${this.apiUrl}?action=addQuotation`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(quotationData),
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('Error adding quotation:', error);
+      throw error;
+    }
+  }
+
+  async updateQuotation(rowIndex, quotationData) {
+    try {
+      const response = await fetch(`${this.apiUrl}?action=updateQuotation&rowIndex=${rowIndex}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(quotationData),
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('Error updating quotation:', error);
+      throw error;
+    }
+  }
+
+  // Returns Functions
+  async fetchReturns() {
+    try {
+      const response = await fetch(`${this.apiUrl}?action=getReturns`);
+      if (!response.ok) throw new Error('Failed to fetch');
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching returns:', error);
+      return [];
+    }
+  }
+
+  async addReturn(returnData) {
+    try {
+      const response = await fetch(`${this.apiUrl}?action=addReturn`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(returnData),
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('Error adding return:', error);
+      throw error;
+    }
+  }
+
+  // Expense Functions
+  async fetchExpenses() {
+    try {
+      const response = await fetch(`${this.apiUrl}?action=getExpenses`);
+      if (!response.ok) throw new Error('Failed to fetch');
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching expenses:', error);
+      return [];
+    }
+  }
+
+  async addExpense(expenseData) {
+    try {
+      const response = await fetch(`${this.apiUrl}?action=addExpense`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(expenseData),
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('Error adding expense:', error);
+      throw error;
+    }
+  }
+
+  async deleteExpense(rowIndex) {
+    try {
+      const response = await fetch(`${this.apiUrl}?action=deleteExpense&rowIndex=${rowIndex}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('Error deleting expense:', error);
+      throw error;
+    }
+  }
+
   getMockInvoices() {
     // Check localStorage first for demo invoices
     const localInvoices = JSON.parse(localStorage.getItem('demoInvoices') || '[]');

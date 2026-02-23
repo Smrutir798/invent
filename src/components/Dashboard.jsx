@@ -1,10 +1,47 @@
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import googleSheetsService from '../services/googleSheets';
 import './Dashboard.css';
 
 const Dashboard = () => {
   const { user, logout, isAdmin } = useAuth();
   const navigate = useNavigate();
+  const [stats, setStats] = useState({
+    totalItems: 0,
+    lowStock: 0,
+    totalValue: 0,
+    categories: 0
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadStats();
+  }, []);
+
+  const loadStats = async () => {
+    try {
+      const inventory = await googleSheetsService.fetchInventory();
+      const totalItems = inventory.length;
+      const lowStock = inventory.filter(item => (Number(item.balance) || 0) < 10).length;
+      const totalValue = inventory.reduce((sum, item) => sum + (Number(item.total) || 0), 0);
+      const categories = [...new Set(inventory.map(item => item.s1).filter(Boolean))].length;
+      
+      setStats({ totalItems, lowStock, totalValue, categories });
+    } catch (error) {
+      console.error('Error loading stats:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatCurrency = (value) => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      maximumFractionDigits: 0,
+    }).format(Number(value) || 0);
+  };
 
   const handleLogout = () => {
     logout();
@@ -65,8 +102,56 @@ const Dashboard = () => {
             <p>Generate a new tax invoice</p>
           </div>
 
+          <div className="dashboard-card" onClick={() => navigate('/ledger')}>
+            <div className="card-icon">📒</div>
+            <h3>Sales Ledger</h3>
+            <p>View all sales transactions</p>
+          </div>
+
+          <div className="dashboard-card" onClick={() => navigate('/customers')}>
+            <div className="card-icon">👤</div>
+            <h3>Customers</h3>
+            <p>Manage customer database</p>
+          </div>
+
+          <div className="dashboard-card" onClick={() => navigate('/suppliers')}>
+            <div className="card-icon">🏭</div>
+            <h3>Suppliers</h3>
+            <p>Manage supplier information</p>
+          </div>
+
+          <div className="dashboard-card" onClick={() => navigate('/purchases')}>
+            <div className="card-icon">📦</div>
+            <h3>Purchase Entry</h3>
+            <p>Record stock purchases</p>
+          </div>
+
+          <div className="dashboard-card" onClick={() => navigate('/quotations')}>
+            <div className="card-icon">📄</div>
+            <h3>Quotations</h3>
+            <p>Create and manage quotes</p>
+          </div>
+
+          <div className="dashboard-card" onClick={() => navigate('/returns')}>
+            <div className="card-icon">🔄</div>
+            <h3>Returns</h3>
+            <p>Handle product returns</p>
+          </div>
+
           {isAdmin() && (
             <>
+              <div className="dashboard-card" onClick={() => navigate('/expenses')}>
+                <div className="card-icon">💰</div>
+                <h3>Expenses</h3>
+                <p>Track business expenses</p>
+              </div>
+
+              <div className="dashboard-card" onClick={() => navigate('/profit-report')}>
+                <div className="card-icon">📈</div>
+                <h3>Profit Report</h3>
+                <p>View profit/loss analysis</p>
+              </div>
+
               <div className="dashboard-card" onClick={() => navigate('/inventory')}>
                 <div className="card-icon">✏️</div>
                 <h3>Edit Items</h3>
@@ -98,19 +183,19 @@ const Dashboard = () => {
           <h3>Quick Overview</h3>
           <div className="stats-grid">
             <div className="stat-card">
-              <span className="stat-value">--</span>
+              <span className="stat-value">{loading ? '--' : stats.totalItems}</span>
               <span className="stat-label">Total Items</span>
             </div>
             <div className="stat-card">
-              <span className="stat-value">--</span>
+              <span className="stat-value">{loading ? '--' : stats.lowStock}</span>
               <span className="stat-label">Low Stock</span>
             </div>
             <div className="stat-card">
-              <span className="stat-value">--</span>
+              <span className="stat-value">{loading ? '--' : formatCurrency(stats.totalValue)}</span>
               <span className="stat-label">Total Value</span>
             </div>
             <div className="stat-card">
-              <span className="stat-value">--</span>
+              <span className="stat-value">{loading ? '--' : stats.categories}</span>
               <span className="stat-label">Categories</span>
             </div>
           </div>

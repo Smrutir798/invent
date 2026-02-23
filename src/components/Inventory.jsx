@@ -103,6 +103,34 @@ const Inventory = () => {
     navigate('/login');
   };
 
+  const handleDownloadCSV = () => {
+    const headers = ['Item Name', 'Category', 'Total Qty', 'Balance', 'Rate', 'GST %', 'GST Amount', 'Sales Rate', 'Total', 'Date', 'Entered By'];
+    const csvData = filteredInventory.map(item => [
+      item.itemName || '',
+      item.s1 || '',
+      item.totalQty || 0,
+      item.balance || 0,
+      item.rate || 0,
+      item.gst || 0,
+      item.gstAmount || 0,
+      item.salesRate || 0,
+      item.total || 0,
+      item.date || '',
+      item.enteredBy || ''
+    ]);
+    
+    const csvContent = [
+      headers.join(','),
+      ...csvData.map(row => row.map(cell => `"${cell}"`).join(','))
+    ].join('\n');
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `inventory_${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+  };
+
   const formatCurrency = (value) => {
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
@@ -167,6 +195,9 @@ const Inventory = () => {
           <div className="toolbar-actions">
             <button onClick={() => navigate('/inventory/add')} className="add-btn">
               ➕ Add New Item
+            </button>
+            <button onClick={handleDownloadCSV} className="download-btn">
+              ⬇️ Download
             </button>
             <button onClick={loadInventory} className="refresh-btn">
               🔄 Refresh

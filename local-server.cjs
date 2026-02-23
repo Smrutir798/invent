@@ -46,7 +46,13 @@ async function initializeSheets(sheets) {
     const requiredSheets = [
       { name: 'Inventory', headers: ['ItemName', 'TotalQty', 'Balance', 'Rate', 'GST', 'GSTRate', 'PRate', 'S1', 'GSTAmount', 'SalesRate', 'Round', 'Total', 'Date', 'Time', 'EnteredBy'] },
       { name: 'Users', headers: ['Username', 'Password', 'Role', 'Name', 'CreatedAt'] },
-      { name: 'Invoices', headers: ['InvoiceNo', 'Date', 'BuyerName', 'BuyerAddress', 'BuyerGSTIN', 'BuyerState', 'BuyerStateCode', 'Subtotal', 'GSTAmount', 'Total', 'Items', 'CreatedBy', 'CreatedAt'] }
+      { name: 'Invoices', headers: ['InvoiceNo', 'Date', 'BuyerName', 'BuyerAddress', 'BuyerGSTIN', 'BuyerState', 'BuyerStateCode', 'Subtotal', 'GSTAmount', 'Total', 'Items', 'CreatedBy', 'CreatedAt'] },
+      { name: 'Customers', headers: ['Name', 'Phone', 'Email', 'Address', 'GSTIN', 'TotalPurchases', 'LastPurchase', 'CreatedAt'] },
+      { name: 'Suppliers', headers: ['Name', 'ContactPerson', 'Phone', 'Email', 'Address', 'GSTIN', 'BankName', 'AccountNo', 'IFSC', 'CreatedAt'] },
+      { name: 'Purchases', headers: ['PurchaseNo', 'Date', 'SupplierName', 'Items', 'Subtotal', 'GSTAmount', 'Total', 'PaymentStatus', 'CreatedBy', 'CreatedAt'] },
+      { name: 'Quotations', headers: ['QuoteNo', 'Date', 'CustomerName', 'CustomerPhone', 'Items', 'Subtotal', 'GSTAmount', 'Total', 'ValidUntil', 'Status', 'CreatedBy', 'CreatedAt'] },
+      { name: 'Returns', headers: ['ReturnNo', 'Date', 'InvoiceNo', 'CustomerName', 'Items', 'TotalRefund', 'Reason', 'Status', 'CreatedBy', 'CreatedAt'] },
+      { name: 'Expenses', headers: ['Date', 'Category', 'Description', 'Amount', 'PaidTo', 'PaymentMode', 'CreatedBy', 'CreatedAt'] }
     ];
     
     const sheetsToCreate = requiredSheets.filter(s => !existingSheets.includes(s.name));
@@ -162,6 +168,229 @@ async function deleteInvoice(sheets, rowIndex) {
   return { success: true, message: 'Invoice deleted successfully' };
 }
 
+async function reduceInventoryBalance(sheets, items) {
+  // items is an array of { rowIndex, quantity } to reduce from inventory
+  const results = [];
+  for (const item of items) {
+    try {
+      // Get current balance
+      const response = await sheets.spreadsheets.values.get({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `Inventory!A${item.rowIndex}:O${item.rowIndex}`
+      });
+      const row = response.data.values?.[0];
+      if (row) {
+        const currentBalance = parseInt(row[2]) || 0;
+        const newBalance = Math.max(0, currentBalance - item.quantity);
+        // Update only the balance column (C)
+        await sheets.spreadsheets.values.update({
+          spreadsheetId: SPREADSHEET_ID,
+          range: `Inventory!C${item.rowIndex}`,
+          valueInputOption: 'USER_ENTERED',
+          requestBody: { values: [[newBalance]] }
+        });
+        results.push({ rowIndex: item.rowIndex, success: true, newBalance });
+      }
+    } catch (error) {
+      results.push({ rowIndex: item.rowIndex, success: false, error: error.message });
+    }
+  }
+  return { success: true, results };
+}
+
+async function increaseInventoryBalance(sheets, items) {
+  const results = [];
+  for (const item of items) {
+    try {
+      const response = await sheets.spreadsheets.values.get({
+        spreadsheetId: SPREADSHEET_ID, range: `Inventory!A${item.rowIndex}:O${item.rowIndex}`
+      });
+      const row = response.data.values?.[0];
+      if (row) {
+        const currentBalance = parseInt(row[2]) || 0;
+        const currentTotalQty = parseInt(row[1]) || 0;
+        const newBalance = currentBalance + item.quantity;
+        const newTotalQty = currentTotalQty + item.quantity;
+        await sheets.spreadsheets.values.update({
+          spreadsheetId: SPREADSHEET_ID, range: `Inventory!B${item.rowIndex}:C${item.rowIndex}`,
+          valueInputOption: 'USER_ENTERED', requestBody: { values: [[newTotalQty, newBalance]] }
+        });
+        results.push({ rowIndex: item.rowIndex, success: true, newBalance });
+      }
+    } catch (error) {
+      results.push({ rowIndex: item.rowIndex, success: false, error: error.message });
+    }
+  }
+  return { success: true, results };
+}
+
+// Customers
+async function getCustomers(sheets) {
+  const response = await sheets.spreadsheets.values.get({ spreadsheetId: SPREADSHEET_ID, range: 'Customers!A2:H' });
+  const rows = response.data.values || [];
+  return rows.map((row, index) => ({
+    id: index + 2, name: row[0] || '', phone: row[1] || '', email: row[2] || '', address: row[3] || '',
+    gstin: row[4] || '', totalPurchases: row[5] || 0, lastPurchase: row[6] || '', createdAt: row[7] || ''
+  }));
+}
+
+async function addCustomer(sheets, customer) {
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: SPREADSHEET_ID, range: 'Customers!A:H', valueInputOption: 'USER_ENTERED',
+    requestBody: { values: [[customer.name, customer.phone, customer.email, customer.address, customer.gstin, 0, '', new Date().toISOString()]] }
+  });
+  return { success: true };
+}
+
+async function updateCustomer(sheets, rowIndex, customer) {
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: SPREADSHEET_ID, range: `Customers!A${rowIndex}:H${rowIndex}`, valueInputOption: 'USER_ENTERED',
+    requestBody: { values: [[customer.name, customer.phone, customer.email, customer.address, customer.gstin, customer.totalPurchases || 0, customer.lastPurchase || '', customer.createdAt || '']] }
+  });
+  return { success: true };
+}
+
+async function deleteCustomer(sheets, rowIndex) {
+  const sheetMeta = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
+  const sheet = sheetMeta.data.sheets.find(s => s.properties.title === 'Customers');
+  if (sheet) {
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: SPREADSHEET_ID,
+      requestBody: { requests: [{ deleteDimension: { range: { sheetId: sheet.properties.sheetId, dimension: 'ROWS', startIndex: parseInt(rowIndex) - 1, endIndex: parseInt(rowIndex) } } }] }
+    });
+  }
+  return { success: true };
+}
+
+// Suppliers
+async function getSuppliers(sheets) {
+  const response = await sheets.spreadsheets.values.get({ spreadsheetId: SPREADSHEET_ID, range: 'Suppliers!A2:J' });
+  const rows = response.data.values || [];
+  return rows.map((row, index) => ({
+    id: index + 2, name: row[0] || '', contactPerson: row[1] || '', phone: row[2] || '', email: row[3] || '',
+    address: row[4] || '', gstin: row[5] || '', bankName: row[6] || '', accountNo: row[7] || '', ifsc: row[8] || '', createdAt: row[9] || ''
+  }));
+}
+
+async function addSupplier(sheets, supplier) {
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: SPREADSHEET_ID, range: 'Suppliers!A:J', valueInputOption: 'USER_ENTERED',
+    requestBody: { values: [[supplier.name, supplier.contactPerson, supplier.phone, supplier.email, supplier.address, supplier.gstin, supplier.bankName, supplier.accountNo, supplier.ifsc, new Date().toISOString()]] }
+  });
+  return { success: true };
+}
+
+async function deleteSupplier(sheets, rowIndex) {
+  const sheetMeta = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
+  const sheet = sheetMeta.data.sheets.find(s => s.properties.title === 'Suppliers');
+  if (sheet) {
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: SPREADSHEET_ID,
+      requestBody: { requests: [{ deleteDimension: { range: { sheetId: sheet.properties.sheetId, dimension: 'ROWS', startIndex: parseInt(rowIndex) - 1, endIndex: parseInt(rowIndex) } } }] }
+    });
+  }
+  return { success: true };
+}
+
+// Purchases
+async function getPurchases(sheets) {
+  const response = await sheets.spreadsheets.values.get({ spreadsheetId: SPREADSHEET_ID, range: 'Purchases!A2:J' });
+  const rows = response.data.values || [];
+  return rows.map((row, index) => {
+    let items = []; try { items = JSON.parse(row[3] || '[]'); } catch (e) {}
+    return { id: index + 2, purchaseNo: row[0] || '', date: row[1] || '', supplierName: row[2] || '', items,
+      subtotal: row[4] || 0, gstAmount: row[5] || 0, total: row[6] || 0, paymentStatus: row[7] || '', createdBy: row[8] || '', createdAt: row[9] || '' };
+  });
+}
+
+async function addPurchase(sheets, purchase) {
+  const itemsString = typeof purchase.items === 'string' ? purchase.items : JSON.stringify(purchase.items);
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: SPREADSHEET_ID, range: 'Purchases!A:J', valueInputOption: 'USER_ENTERED',
+    requestBody: { values: [[purchase.purchaseNo, purchase.date, purchase.supplierName, itemsString, purchase.subtotal, purchase.gstAmount, purchase.total, purchase.paymentStatus || 'paid', purchase.createdBy, new Date().toISOString()]] }
+  });
+  return { success: true };
+}
+
+// Quotations
+async function getQuotations(sheets) {
+  const response = await sheets.spreadsheets.values.get({ spreadsheetId: SPREADSHEET_ID, range: 'Quotations!A2:L' });
+  const rows = response.data.values || [];
+  return rows.map((row, index) => {
+    let items = []; try { items = JSON.parse(row[4] || '[]'); } catch (e) {}
+    return { id: index + 2, quoteNo: row[0] || '', date: row[1] || '', customerName: row[2] || '', customerPhone: row[3] || '', items,
+      subtotal: row[5] || 0, gstAmount: row[6] || 0, total: row[7] || 0, validUntil: row[8] || '', status: row[9] || '', createdBy: row[10] || '', createdAt: row[11] || '' };
+  });
+}
+
+async function addQuotation(sheets, quotation) {
+  const itemsString = typeof quotation.items === 'string' ? quotation.items : JSON.stringify(quotation.items);
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: SPREADSHEET_ID, range: 'Quotations!A:L', valueInputOption: 'USER_ENTERED',
+    requestBody: { values: [[quotation.quoteNo, quotation.date, quotation.customerName, quotation.customerPhone, itemsString, quotation.subtotal, quotation.gstAmount, quotation.total, quotation.validUntil, quotation.status || 'pending', quotation.createdBy, new Date().toISOString()]] }
+  });
+  return { success: true };
+}
+
+async function updateQuotation(sheets, rowIndex, quotation) {
+  const itemsString = typeof quotation.items === 'string' ? quotation.items : JSON.stringify(quotation.items);
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: SPREADSHEET_ID, range: `Quotations!A${rowIndex}:L${rowIndex}`, valueInputOption: 'USER_ENTERED',
+    requestBody: { values: [[quotation.quoteNo, quotation.date, quotation.customerName, quotation.customerPhone, itemsString, quotation.subtotal, quotation.gstAmount, quotation.total, quotation.validUntil, quotation.status, quotation.createdBy, quotation.createdAt]] }
+  });
+  return { success: true };
+}
+
+// Returns
+async function getReturns(sheets) {
+  const response = await sheets.spreadsheets.values.get({ spreadsheetId: SPREADSHEET_ID, range: 'Returns!A2:J' });
+  const rows = response.data.values || [];
+  return rows.map((row, index) => {
+    let items = []; try { items = JSON.parse(row[4] || '[]'); } catch (e) {}
+    return { id: index + 2, returnNo: row[0] || '', date: row[1] || '', invoiceNo: row[2] || '', customerName: row[3] || '', items,
+      totalRefund: row[5] || 0, reason: row[6] || '', status: row[7] || '', createdBy: row[8] || '', createdAt: row[9] || '' };
+  });
+}
+
+async function addReturn(sheets, returnData) {
+  const itemsString = typeof returnData.items === 'string' ? returnData.items : JSON.stringify(returnData.items);
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: SPREADSHEET_ID, range: 'Returns!A:J', valueInputOption: 'USER_ENTERED',
+    requestBody: { values: [[returnData.returnNo, returnData.date, returnData.invoiceNo, returnData.customerName, itemsString, returnData.totalRefund, returnData.reason, returnData.status || 'completed', returnData.createdBy, new Date().toISOString()]] }
+  });
+  return { success: true };
+}
+
+// Expenses
+async function getExpenses(sheets) {
+  const response = await sheets.spreadsheets.values.get({ spreadsheetId: SPREADSHEET_ID, range: 'Expenses!A2:H' });
+  const rows = response.data.values || [];
+  return rows.map((row, index) => ({
+    id: index + 2, date: row[0] || '', category: row[1] || '', description: row[2] || '', amount: row[3] || 0,
+    paidTo: row[4] || '', paymentMode: row[5] || '', createdBy: row[6] || '', createdAt: row[7] || ''
+  }));
+}
+
+async function addExpense(sheets, expense) {
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: SPREADSHEET_ID, range: 'Expenses!A:H', valueInputOption: 'USER_ENTERED',
+    requestBody: { values: [[expense.date, expense.category, expense.description, expense.amount, expense.paidTo, expense.paymentMode, expense.createdBy, new Date().toISOString()]] }
+  });
+  return { success: true };
+}
+
+async function deleteExpense(sheets, rowIndex) {
+  const sheetMeta = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
+  const sheet = sheetMeta.data.sheets.find(s => s.properties.title === 'Expenses');
+  if (sheet) {
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: SPREADSHEET_ID,
+      requestBody: { requests: [{ deleteDimension: { range: { sheetId: sheet.properties.sheetId, dimension: 'ROWS', startIndex: parseInt(rowIndex) - 1, endIndex: parseInt(rowIndex) } } }] }
+    });
+  }
+  return { success: true };
+}
+
 // HTTP Server
 const server = http.createServer(async (req, res) => {
   // CORS
@@ -200,6 +429,31 @@ const server = http.createServer(async (req, res) => {
       case 'getInvoices': result = await getInvoices(sheets); break;
       case 'addInvoice': result = await addInvoice(sheets, body); break;
       case 'deleteInvoice': result = await deleteInvoice(sheets, rowIndex); break;
+      case 'reduceInventoryBalance': result = await reduceInventoryBalance(sheets, body.items); break;
+      case 'increaseInventoryBalance': result = await increaseInventoryBalance(sheets, body.items); break;
+      // Customers
+      case 'getCustomers': result = await getCustomers(sheets); break;
+      case 'addCustomer': result = await addCustomer(sheets, body); break;
+      case 'updateCustomer': result = await updateCustomer(sheets, rowIndex, body); break;
+      case 'deleteCustomer': result = await deleteCustomer(sheets, rowIndex); break;
+      // Suppliers
+      case 'getSuppliers': result = await getSuppliers(sheets); break;
+      case 'addSupplier': result = await addSupplier(sheets, body); break;
+      case 'deleteSupplier': result = await deleteSupplier(sheets, rowIndex); break;
+      // Purchases
+      case 'getPurchases': result = await getPurchases(sheets); break;
+      case 'addPurchase': result = await addPurchase(sheets, body); break;
+      // Quotations
+      case 'getQuotations': result = await getQuotations(sheets); break;
+      case 'addQuotation': result = await addQuotation(sheets, body); break;
+      case 'updateQuotation': result = await updateQuotation(sheets, rowIndex, body); break;
+      // Returns
+      case 'getReturns': result = await getReturns(sheets); break;
+      case 'addReturn': result = await addReturn(sheets, body); break;
+      // Expenses
+      case 'getExpenses': result = await getExpenses(sheets); break;
+      case 'addExpense': result = await addExpense(sheets, body); break;
+      case 'deleteExpense': result = await deleteExpense(sheets, rowIndex); break;
       case 'health': result = { status: 'ok' }; break;
       default: result = { error: 'Invalid action' };
     }
